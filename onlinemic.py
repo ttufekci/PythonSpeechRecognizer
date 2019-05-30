@@ -1,8 +1,8 @@
-import audioop
 import pyaudio
-import numpy as np
 import os
 import pickle
+import wave
+import scipy.io.wavfile as wav
 from python_speech_features import mfcc
 
 chunk = 1024
@@ -15,7 +15,9 @@ RATE = 16000
 
 FORMAT = pyaudio.paInt16
 
-RECORD_SECONDS = 5
+RECORD_SECONDS = 2
+
+WAVE_OUTPUT_FILENAME = "output.wav"
 
 def loadModels():
     global modelBir, modelIki, modelUc, modelDort, modelBes, modelAlti, modelYedi, modelSekiz, modelDokuz, modelOn
@@ -60,19 +62,20 @@ def loadModels():
     modelOn = pickle.load(file)
     file.close()
 
-def testOnlineData(fs, frames):
-    mfcc_feat = mfcc(frames, fs, nfft=1024)
+def testOnlineFileData(filename):
+    (rate, sig) = wav.read(filename)
+    mfcc_feat_test = mfcc(sig, rate, nfft=1024)
 
-    modelSkorBir = modelBir.score(mfcc_feat)
-    modelSkorIki = modelIki.score(mfcc_feat)
-    modelSkorUc = modelUc.score(mfcc_feat)
-    modelSkorDort = modelDort.score(mfcc_feat)
-    modelSkorBes = modelBes.score(mfcc_feat)
-    modelSkorAlti = modelAlti.score(mfcc_feat)
-    modelSkorYedi = modelYedi.score(mfcc_feat)
-    modelSkorSekiz = modelSekiz.score(mfcc_feat)
-    modelSkorDokuz = modelDokuz.score(mfcc_feat)
-    modelSkorOn = modelOn.score(mfcc_feat)
+    modelSkorBir = modelBir.score(mfcc_feat_test)
+    modelSkorIki = modelIki.score(mfcc_feat_test)
+    modelSkorUc = modelUc.score(mfcc_feat_test)
+    modelSkorDort = modelDort.score(mfcc_feat_test)
+    modelSkorBes = modelBes.score(mfcc_feat_test)
+    modelSkorAlti = modelAlti.score(mfcc_feat_test)
+    modelSkorYedi = modelYedi.score(mfcc_feat_test)
+    modelSkorSekiz = modelSekiz.score(mfcc_feat_test)
+    modelSkorDokuz = modelDokuz.score(mfcc_feat_test)
+    modelSkorOn = modelOn.score(mfcc_feat_test)
 
     t = max(modelSkorBir, modelSkorIki, modelSkorUc, modelSkorDort, modelSkorBes, modelSkorAlti, modelSkorYedi,
             modelSkorSekiz, modelSkorDokuz, modelSkorOn)
@@ -98,7 +101,6 @@ def testOnlineData(fs, frames):
     if (t == modelSkorOn):
         return 'on'
 
-
 def main():
     loadModels()
 
@@ -110,34 +112,28 @@ def main():
                     input=True,
                     frames_per_buffer=chunk)
 
+    frames = []
+
     print('Start Recording')
 
-    while True:
+    for i in range(0, int(RATE / chunk * RECORD_SECONDS)):
+        data = stream.read(chunk)
+        frames.append(data)
 
-        frames = []
-
-        while True:
-
-            data = stream.read(chunk)
-
-            frames.append(np.fromstring(data, dtype=np.int16))
-
-            rms = audioop.rms(data, 2)  # width=2 for format=paInt16
-
-            if (rms > threshold):
-                break
-
-        for i in range(0, int(RATE / chunk * 0.9)):
-            data = stream.read(chunk)
-            frames.append(np.fromstring(data, dtype=np.int16))
-
-        numpydata = np.hstack(frames)
-        print(testOnlineData(16000, numpydata))
+    print("* done recording")
 
     stream.stop_stream()
     stream.close()
     p.terminate()
 
+    wf = wave.open(WAVE_OUTPUT_FILENAME, 'wb')
+    wf.setnchannels(CHANNELS)
+    wf.setsampwidth(p.get_sample_size(FORMAT))
+    wf.setframerate(RATE)
+    wf.writeframes(b''.join(frames))
+    wf.close()
+
+    print(testOnlineFileData(WAVE_OUTPUT_FILENAME))
 
 if __name__ == '__main__':
     main()
