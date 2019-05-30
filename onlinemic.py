@@ -3,6 +3,7 @@ import os
 import pickle
 import wave
 import scipy.io.wavfile as wav
+import audioop
 from python_speech_features import mfcc
 
 chunk = 1024
@@ -15,7 +16,7 @@ RATE = 16000
 
 FORMAT = pyaudio.paInt16
 
-RECORD_SECONDS = 2
+RECORD_SECONDS = 3
 
 WAVE_OUTPUT_FILENAME = "output.wav"
 
@@ -112,28 +113,43 @@ def main():
                     input=True,
                     frames_per_buffer=chunk)
 
-    frames = []
+
 
     print('Start Recording')
 
-    for i in range(0, int(RATE / chunk * RECORD_SECONDS)):
-        data = stream.read(chunk)
-        frames.append(data)
+    while(1):
+
+        frames = []
+
+        while True:
+
+            data = stream.read(chunk)
+
+            frames.append(data)
+
+            rms = audioop.rms(data, 2)  # width=2 for format=paInt16
+
+            if (rms > threshold):
+                break
+
+        for i in range(0, int(RATE / chunk * 0.8)):
+            data = stream.read(chunk)
+            frames.append(data)
+
+        wf = wave.open(WAVE_OUTPUT_FILENAME, 'wb')
+        wf.setnchannels(CHANNELS)
+        wf.setsampwidth(p.get_sample_size(FORMAT))
+        wf.setframerate(RATE)
+        wf.writeframes(b''.join(frames))
+        wf.close()
+
+        print(testOnlineFileData(WAVE_OUTPUT_FILENAME))
 
     print("* done recording")
 
     stream.stop_stream()
     stream.close()
     p.terminate()
-
-    wf = wave.open(WAVE_OUTPUT_FILENAME, 'wb')
-    wf.setnchannels(CHANNELS)
-    wf.setsampwidth(p.get_sample_size(FORMAT))
-    wf.setframerate(RATE)
-    wf.writeframes(b''.join(frames))
-    wf.close()
-
-    print(testOnlineFileData(WAVE_OUTPUT_FILENAME))
 
 if __name__ == '__main__':
     main()
